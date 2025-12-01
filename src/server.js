@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const rateLimiter = require('./middlewares/rateLimiter');
 const loggerMiddleware = require('./middlewares/logger');
 const { authMiddleware } = require('./middlewares/auth');
+const { ipBlockerMiddleware, adminRoutes } = require('./middlewares/ipBlocker');
 const router = require('./services/router');
 
 dotenv.config();
@@ -10,10 +11,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: process.env.MAX_PAYLOAD_SIZE || '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: process.env.MAX_PAYLOAD_SIZE || '1mb' }));
+const maxPayload = process.env.MAX_PAYLOAD_SIZE || '1mb';
+app.use(express.json({ limit: maxPayload }));
+app.use(express.urlencoded({ extended: true, limit: maxPayload }));
 
 app.use(loggerMiddleware);
+
+app.use(ipBlockerMiddleware);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -21,7 +25,15 @@ app.get('/health', (req, res) => {
     message: 'API Gateway está funcionando',
     timestamp: new Date().toISOString(),
     services: Object.keys(require('../services.json').services),
-    features: ['rate-limiting', 'dynamic-routing', 'jwt-auth', 'logging', 'proxy']
+    features: [
+      'rate-limiting', 
+      'dynamic-routing', 
+      'jwt-auth', 
+      'ip-blocking',
+      'request-logging',
+      'payload-limiting',
+      'postgres-storage'
+    ]
   });
 });
 
@@ -32,7 +44,8 @@ app.get('/', (req, res) => {
       health: '/health',
       protected: '/api/protected',
       limited: '/api/limited',
-      services: '/services'
+      services: '/services',
+      admin: '/admin/blocked-ips (requer autenticação)'
     },
     features: {
       rate_limit: {
@@ -40,7 +53,10 @@ app.get('/', (req, res) => {
         max_requests: process.env.RATE_LIMIT_MAX_REQUESTS
       },
       authentication: 'JWT Bearer token',
-      dynamic_routing: 'Configurável via services.json'
+      dynamic_routing: 'Configurável via services.json',
+      ip_blocking: 'Automático e manual via PostgreSQL',
+      payload_limit: maxPayload,
+      database: 'PostgreSQL + Redis'
     }
   });
 });
@@ -88,6 +104,8 @@ app.use((req, res, next) => {
   next();
 });
 
+adminRoutes.setup(app);
+
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -114,5 +132,6 @@ app.listen(PORT, () => {
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Serviços configurados: http://localhost:${PORT}/services`);
   console.log(`Exemplo de rota com proxy: http://localhost:${PORT}/auth/login`);
-  console.log(`Exemplo de rota protegida: http://localhost:${PORT}/api/protected`);
+  console.log(`Admin - IPs bloqueados: http://localhost:${PORT}/admin/blocked-ips`);
+  console.log(`Limite de payload configurado: ${maxPayload}`);
 });
