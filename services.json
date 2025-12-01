@@ -1,0 +1,88 @@
+{
+  "services": {
+    "auth": {
+      "baseUrl": "http://localhost:3001",
+      "routes": [
+        {
+          "path": "/auth/login",
+          "methods": ["POST"],
+          "requiresAuth": false
+        },
+        {
+          "path": "/auth/register",
+          "methods": ["POST"],
+          "requiresAuth": false
+        },
+        {
+          "path": "/auth/verify",
+          "methods": ["GET"],
+          "requiresAuth": true
+        },
+        {
+          "path": "/auth/profile",
+          "methods": ["GET"],
+          "requiresAuth": true
+        }
+      ]
+    },
+    "users": {
+      "baseUrl": "http://localhost:3002",
+      "routes": [
+        {
+          "path": "/users",
+          "methods": ["GET", "POST"],
+          "requiresAuth": true
+        },
+        {
+          "path": "/users/:id",
+          "methods": ["GET", "PUT", "DELETE"],
+          "requiresAuth": true
+        }
+      ]
+    },
+    "products": {
+      "baseUrl": "http://localhost:3003",
+      "routes": [
+        {
+          "path": "/products",
+          "methods": ["GET", "POST"],
+          "requiresAuth": false,
+          "rateLimit": true
+        },
+        {
+          "path": "/products/:id",
+          "methods": ["GET", "PUT", "DELETE"],
+          "requiresAuth": true,
+          "rateLimit": true
+        },
+        {
+          "path": "/products/category/:category",
+          "methods": ["GET"],
+          "requiresAuth": false,
+          "rateLimit": true
+        }
+      ]
+    },
+    "payments": {
+      "baseUrl": "http://localhost:3004",
+      "routes": [
+        {
+          "path": "/payments/create",
+          "methods": ["POST"],
+          "requiresAuth": true,
+          "rateLimit": true
+        },
+        {
+          "path": "/payments/:id",
+          "methods": ["GET"],
+          "requiresAuth": true
+        }
+      ]
+    }
+  },
+  "global": {
+    "defaultRateLimit": true,
+    "timeout": 5000,
+    "maxPayloadSize": "1mb"
+  }
+}
