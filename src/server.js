@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const rateLimiter = require('./middlewares/rateLimiter');
+const loggerMiddleware = require('./middlewares/logger');
 
 dotenv.config();
 
@@ -8,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+app.use(loggerMiddleware);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ 
