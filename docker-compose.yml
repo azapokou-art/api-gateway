@@ -10,6 +10,29 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - gateway-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: api-gateway-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gateway_user
+      POSTGRES_PASSWORD: gateway_password
+      POSTGRES_DB: gateway_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - gateway-network
+
+networks:
+  gateway-network:
+    driver: bridge
 
 volumes:
   redis_data:
+  postgres_data:

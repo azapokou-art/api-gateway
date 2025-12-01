@@ -1,110 +1,88 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const rateLimiter = require('./middlewares/rateLimiter');
-const loggerMiddleware = require('./middlewares/logger');
-const router = require('./services/router');
-
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json({ limit: process.env.MAX_PAYLOAD_SIZE || '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: process.env.MAX_PAYLOAD_SIZE || '1mb' }));
-
-app.use(loggerMiddleware);
-
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'UP', 
-    message: 'API Gateway está funcionando',
-    timestamp: new Date().toISOString(),
-    services: Object.keys(require('../services.json').services)
-  });
-});
-
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Bem-vindo ao API Gateway com Rate Limiter',
-    endpoints: {
-      health: '/health',
-      protected: '/api/protected',
-      limited: '/api/limited',
-      services: '/services'
+{
+  "services": {
+    "auth": {
+      "baseUrl": "http://localhost:3001",
+      "routes": [
+        {
+          "path": "/auth/login",
+          "methods": ["POST"],
+          "requiresAuth": false
+        },
+        {
+          "path": "/auth/register",
+          "methods": ["POST"],
+          "requiresAuth": false
+        },
+        {
+          "path": "/auth/verify",
+          "methods": ["GET"],
+          "requiresAuth": true
+        },
+        {
+          "path": "/auth/profile",
+          "methods": ["GET"],
+          "requiresAuth": true
+        }
+      ]
     },
-    rate_limit: {
-      window: process.env.RATE_LIMIT_WINDOW_MS / 60000 + ' minutos',
-      max_requests: process.env.RATE_LIMIT_MAX_REQUESTS
+    "users": {
+      "baseUrl": "http://localhost:3002",
+      "routes": [
+        {
+          "path": "/users",
+          "methods": ["GET", "POST"],
+          "requiresAuth": true
+        },
+        {
+          "path": "/users/:id",
+          "methods": ["GET", "PUT", "DELETE"],
+          "requiresAuth": true
+        }
+      ]
+    },
+    "products": {
+      "baseUrl": "http://localhost:3003",
+      "routes": [
+        {
+          "path": "/products",
+          "methods": ["GET", "POST"],
+          "requiresAuth": false,
+          "rateLimit": true
+        },
+        {
+          "path": "/products/:id",
+          "methods": ["GET", "PUT", "DELETE"],
+          "requiresAuth": true,
+          "rateLimit": true
+        },
+        {
+          "path": "/products/category/:category",
+          "methods": ["GET"],
+          "requiresAuth": false,
+          "rateLimit": true
+        }
+      ]
+    },
+    "payments": {
+      "baseUrl": "http://localhost:3004",
+      "routes": [
+        {
+          "path": "/payments/create",
+          "methods": ["POST"],
+          "requiresAuth": true,
+          "rateLimit": true
+        },
+        {
+          "path": "/payments/:id",
+          "methods": ["GET"],
+          "requiresAuth": true
+        }
+      ]
     }
-  });
-});
-
-app.get('/services', (req, res) => {
-  const servicesConfig = require('../services.json');
-  res.json({
-    services: servicesConfig.services,
-    global: servicesConfig.global
-  });
-});
-
-app.get('/api/protected', rateLimiter, (req, res) => {
-  res.json({ 
-    message: 'Esta rota está protegida pelo rate limiter',
-    timestamp: new Date().toISOString(),
-    yourIp: req.ip
-  });
-});
-
-app.get('/api/limited', rateLimiter, (req, res) => {
-  res.json({ 
-    message: 'Outra rota com limitação de taxa',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.use(router.getMiddleware());
-
-app.use((req, res, next) => {
-
-  if (req.matchedRoute) {
-    const route = req.matchedRoute;
-    
-    if (route.rateLimit) {
-      return rateLimiter(req, res, () => {
-        router.proxyRequest(req, res, route);
-      });
-    } else {
-      return router.proxyRequest(req, res, route);
-    }
+  },
+  "global": {
+    "defaultRateLimit": true,
+    "timeout": 5000,
+    "maxPayloadSize": "1mb"
   }
-  
-  next();
-});
-
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: 'Rota não encontrada',
-    path: req.originalUrl
-  });
-});
-
-app.use((err, req, res, next) => {
-  console.error('Erro no gateway:', err.stack);
-  
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Algo deu errado no servidor';
-  
-  res.status(statusCode).json({
-    error: err.name || 'Internal Server Error',
-    message: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Serviços configurados: http://localhost:${PORT}/services`);
-  console.log(`Exemplo de rota: http://localhost:${PORT}/auth/login`);
-});
+}
