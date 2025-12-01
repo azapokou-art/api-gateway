@@ -43,10 +43,18 @@ class DynamicRouter {
     return routes;
   }
   
-  convertPathToRegex(path) {
-    const regexPath = path.replace(/:\w+/g, '([^/]+)');
-    return new RegExp(`^${regexPath}$`);
+convertPathToRegex(path) {
+  if (path === '*') {
+    return /.*/;
   }
+  
+  let regexPath = path
+    .replace(/\//g, '\\/')
+    .replace(/:(\w+)/g, '([^\\/]+)')
+    .replace(/\*/g, '.*');
+  
+  return new RegExp(`^${regexPath}$`);
+}
   
   findRoute(req) {
     const { method, path } = req;
