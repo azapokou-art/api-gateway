@@ -23,7 +23,8 @@ class DynamicRouter {
           pathRegex,
           methods: routeConfig.methods,
           requiresAuth: routeConfig.requiresAuth !== undefined ? routeConfig.requiresAuth : true,
-          rateLimit: routeConfig.rateLimit !== undefined ? routeConfig.rateLimit : servicesConfig.global.defaultRateLimit
+          rateLimit: routeConfig.rateLimit !== undefined ? routeConfig.rateLimit : servicesConfig.global.defaultRateLimit,
+          cache: routeConfig.cache || false
         });
       });
     });

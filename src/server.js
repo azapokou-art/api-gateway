@@ -4,6 +4,7 @@ const rateLimiter = require('./middlewares/rateLimiter');
 const loggerMiddleware = require('./middlewares/logger');
 const { authMiddleware } = require('./middlewares/auth');
 const { ipBlockerMiddleware, adminRoutes } = require('./middlewares/ipBlocker');
+const { cacheMiddleware } = require('./middlewares/cache');
 const router = require('./services/router');
 
 dotenv.config();
@@ -32,7 +33,8 @@ app.get('/health', (req, res) => {
       'ip-blocking',
       'request-logging',
       'payload-limiting',
-      'postgres-storage'
+      'postgres-storage',
+      'response-caching'
     ]
   });
 });
@@ -56,6 +58,7 @@ app.get('/', (req, res) => {
       dynamic_routing: 'Configurável via services.json',
       ip_blocking: 'Automático e manual via PostgreSQL',
       payload_limit: maxPayload,
+      cache: 'Redis-based (300s TTL para rotas GET)',
       database: 'PostgreSQL + Redis'
     }
   });
@@ -88,20 +91,25 @@ app.use(router.getMiddleware());
 
 app.use(authMiddleware);
 
+const cache = cacheMiddleware({ ttl: 300 });
+app.use(cache);
+
 app.use((req, res, next) => {
   if (req.matchedRoute) {
     const route = req.matchedRoute;
     
+    const executeProxy = () => {
+      router.proxyRequest(req, res, route);
+    };
+    
     if (route.rateLimit) {
-      return rateLimiter(req, res, () => {
-        router.proxyRequest(req, res, route);
-      });
+      rateLimiter(req, res, executeProxy);
     } else {
-      return router.proxyRequest(req, res, route);
+      executeProxy();
     }
+  } else {
+    next();
   }
-  
-  next();
 });
 
 adminRoutes.setup(app);
@@ -132,6 +140,8 @@ app.listen(PORT, () => {
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Serviços configurados: http://localhost:${PORT}/services`);
   console.log(`Exemplo de rota com proxy: http://localhost:${PORT}/auth/login`);
+  console.log(`Exemplo de rota com cache: http://localhost:${PORT}/products`);
   console.log(`Admin - IPs bloqueados: http://localhost:${PORT}/admin/blocked-ips`);
   console.log(`Limite de payload configurado: ${maxPayload}`);
+  console.log(`Cache TTL: 300 segundos para rotas GET`);
 });
