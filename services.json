@@ -1,7 +1,7 @@
 {
   "services": {
     "auth": {
-      "baseUrl": "http://localhost:3001",
+      "baseUrl": "http://127.0.0.1:3001",
       "routes": [
         {
           "path": "/auth/login",
@@ -16,55 +16,62 @@
         {
           "path": "/auth/verify",
           "methods": ["GET"],
-          "requiresAuth": true
+          "requiresAuth": true,
+          "cache": true
         },
         {
           "path": "/auth/profile",
           "methods": ["GET"],
-          "requiresAuth": true
+          "requiresAuth": true,
+          "cache": true
         }
       ]
     },
     "users": {
-      "baseUrl": "http://localhost:3002",
+      "baseUrl": "http://127.0.0.1:3002",
       "routes": [
         {
           "path": "/users",
           "methods": ["GET", "POST"],
-          "requiresAuth": true
+          "requiresAuth": true,
+          "cache": true
         },
         {
           "path": "/users/:id",
           "methods": ["GET", "PUT", "DELETE"],
-          "requiresAuth": true
+          "requiresAuth": true,
+          "cache": true
         }
       ]
     },
     "products": {
-      "baseUrl": "http://localhost:3003",
+      "baseUrl": "http://127.0.0.1:3003",
       "routes": [
         {
           "path": "/products",
           "methods": ["GET", "POST"],
           "requiresAuth": false,
-          "rateLimit": true
+          "rateLimit": true,
+          "cache": true
         },
         {
           "path": "/products/:id",
           "methods": ["GET", "PUT", "DELETE"],
           "requiresAuth": true,
-          "rateLimit": true
+          "rateLimit": true,
+          "cache": true
         },
         {
           "path": "/products/category/:category",
           "methods": ["GET"],
           "requiresAuth": false,
-          "rateLimit": true
+          "rateLimit": true,
+          "cache": true
         }
       ]
     },
     "payments": {
-      "baseUrl": "http://localhost:3004",
+      "baseUrl": "http://127.0.0.1:3004",
       "routes": [
         {
           "path": "/payments/create",
@@ -75,7 +82,8 @@
         {
           "path": "/payments/:id",
           "methods": ["GET"],
-          "requiresAuth": true
+          "requiresAuth": true,
+          "cache": true
         }
       ]
     }

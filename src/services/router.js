@@ -1,21 +1,10 @@
-const httpProxy = require('http-proxy');
+const axios = require('axios');
 const servicesConfig = require('../../services.json');
 
 class DynamicRouter {
   constructor() {
-    this.proxy = httpProxy.createProxyServer({});
     this.services = servicesConfig.services;
     this.routes = this.buildRoutes();
-    
-    this.proxy.on('error', (err, req, res) => {
-      console.error('Proxy error:', err);
-      if (!res.headersSent) {
-        res.status(502).json({
-          error: 'Bad Gateway',
-          message: 'Falha ao conectar com o serviço de destino'
-        });
-      }
-    });
   }
   
   buildRoutes() {
@@ -43,25 +32,24 @@ class DynamicRouter {
     return routes;
   }
   
-convertPathToRegex(path) {
-  if (path === '*') {
-    return /.*/;
+  convertPathToRegex(path) {
+    if (path === '*') {
+      return /.*/;
+    }
+    
+    let regexPath = path
+      .replace(/\//g, '\\/')
+      .replace(/:(\w+)/g, '([^\\/]+)')
+      .replace(/\*/g, '.*');
+    
+    return new RegExp(`^${regexPath}$`);
   }
-  
-  let regexPath = path
-    .replace(/\//g, '\\/')
-    .replace(/:(\w+)/g, '([^\\/]+)')
-    .replace(/\*/g, '.*');
-  
-  return new RegExp(`^${regexPath}$`);
-}
   
   findRoute(req) {
     const { method, path } = req;
     
     for (const route of this.routes) {
       if (route.methods.includes(method) && route.pathRegex.test(path)) {
-
         const params = this.extractParams(path, route.path);
         req.params = params;
         
@@ -87,33 +75,72 @@ convertPathToRegex(path) {
     return params;
   }
   
-  proxyRequest(req, res, route) {
+  async proxyRequest(req, res, route) {
     const targetUrl = route.baseUrl + req.originalUrl;
     
-    console.log(`Proxy: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
+    console.log(`Proxy (axios): ${req.method} ${req.originalUrl} -> ${targetUrl}`);
     
-    const timeout = servicesConfig.global.timeout || 5000;
-    
-    const proxyOptions = {
-      target: route.baseUrl,
-      changeOrigin: true,
-      timeout: timeout
-    };
-    
-    req.headers['x-forwarded-for'] = req.ip;
-    req.headers['x-forwarded-host'] = req.get('host');
-    req.headers['x-service-target'] = route.serviceName;
-    
-    this.proxy.web(req, res, proxyOptions);
+    try {
+      const config = {
+        method: req.method,
+        url: targetUrl,
+        headers: {
+          ...req.headers,
+          'x-forwarded-for': req.ip,
+          'x-forwarded-host': req.get('host'),
+          'x-service-target': route.serviceName,
+          host: new URL(route.baseUrl).host
+        },
+        data: req.body,
+        timeout: 5000,
+        validateStatus: null
+      };
+      
+      delete config.headers['connection'];
+      
+      const response = await axios(config);
+      
+      res.status(response.status)
+         .set(response.headers)
+         .send(response.data);
+         
+    } catch (error) {
+      console.error('Proxy axios error:', error.message);
+      
+      if (error.code === 'ECONNREFUSED') {
+        res.status(502).json({
+          error: 'Bad Gateway',
+          message: `Serviço ${route.serviceName} não está respondendo`,
+          details: `Não foi possível conectar em ${route.baseUrl}`
+        });
+      } else if (error.code === 'ETIMEDOUT') {
+        res.status(504).json({
+          error: 'Gateway Timeout',
+          message: `Serviço ${route.serviceName} não respondeu a tempo`
+        });
+      } else {
+        res.status(500).json({
+          error: 'Proxy Error',
+          message: 'Erro ao processar a requisição',
+          details: error.message
+        });
+      }
+    }
   }
   
   getMiddleware() {
     return (req, res, next) => {
+      console.log(`[ROUTER] Buscando rota para: ${req.method} ${req.originalUrl}`);
+      
       const route = this.findRoute(req);
       
       if (!route) {
+        console.log(`[ROUTER] Rota NÃO encontrada para: ${req.originalUrl}`);
         return next();
       }
+      
+      console.log(`[ROUTER] Rota encontrada: ${route.serviceName} ${route.path}`);
+      console.log(`[ROUTER] Proxy para: ${route.baseUrl}`);
       
       req.matchedRoute = route;
       
