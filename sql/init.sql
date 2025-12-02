@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS access_logs (
     method VARCHAR(10),
     path VARCHAR(500),
     status_code INTEGER,
-    response_time INTEGER, -- em ms
+    response_time INTEGER, 
     user_agent TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     service_name VARCHAR(100)
